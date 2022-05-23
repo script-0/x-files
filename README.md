@@ -1,6 +1,7 @@
 # x_files
+Let's Master Flutter :blush: :boom:
 
-Share, read, update, delete file in your phone over Wifi.
+Share, read, update, delete files in your phone over WiFi.
 
 ## Getting Started
 
