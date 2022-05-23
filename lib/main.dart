@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
 
@@ -15,6 +17,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'X Files',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
@@ -32,42 +35,142 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
 
-  void _incrementCounter() {
+  bool _sharingStarted = false;
+  String _accessLink = "http.//192.168.8.100:4000";
+
+  void startSharing(){
     setState(() {
-      _counter++;
+      _sharingStarted = true;
+    });
+  }
+
+  void stopSharing(){
+    setState(() {
+      _sharingStarted = false;
     });
   }
 
   @override
   Widget build(BuildContext context) {
     FlutterNativeSplash.remove();
+
+
+    Column _buildButtonColumn(Color color, IconData icon, String tooltip,  VoidCallback? action) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          IconButton(
+            onPressed: action,
+            icon: Icon(icon, color: color),
+            tooltip: tooltip,
+          )
+        ],
+      );
+    }
+    Color color = const Color.fromRGBO(255, 255, 255, 1);
+
+    Widget footer = Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: [
+        _buildButtonColumn(color, Icons.settings, 'Settings', ()=>{log("Click on Settings")}),
+        _buildButtonColumn(color, Icons.star_rate, 'Rate', ()=>{log("Click on Rate")}),
+        _buildButtonColumn(color, Icons.share, 'Share', ()=>{log("Click on Share")}),
+      ],
+    );
     return Scaffold(
-      appBar: AppBar(
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
-      ),
+      backgroundColor: Colors.blue,
       body: Center(
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            const Text(
-              'You have pushed the button this many times:',
+            Container(
+              padding : const EdgeInsets.only(top: 60),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Image.asset(
+                    'assets/x_logo_white.png',
+                    width: 100,
+                  ),
+                  const Text(
+                    ' Files',
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 60,
+                        fontWeight: FontWeight.w700
+                    ),
+                  )
+                ],
+              )
             ),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headline4,
+            Expanded(
+              child: Column (
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if(_sharingStarted)
+                    Container(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Text(
+                        _accessLink,
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 25
+                        ),
+                      ),
+                    )
+                  ,
+                  if(_sharingStarted)
+                    Container(
+                      padding : const EdgeInsets.only(bottom: 10),
+                      child: const Text(
+                        "Open this address in your browser",
+                        style: TextStyle(
+                          color: Colors.white70,
+                            fontSize: 18
+                        ),
+                      ),
+                  ),
+                  if(_sharingStarted)
+                    Container(
+                      padding : const EdgeInsets.only(bottom: 10),
+                      child: const Text(
+                        "Tap to share this url",
+                        style: TextStyle(
+                            color: Colors.white70,
+                        ),
+                      ),
+                    ),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      ElevatedButton(
+                        onPressed: _sharingStarted ? stopSharing : startSharing,
+                        child: _sharingStarted ? const Icon(Icons.stop , color: Colors.white, size: 60) : const Icon(Icons.power_settings_new, color: Colors.white, size: 60),
+                        style: ElevatedButton.styleFrom(
+                          shape: const CircleBorder(),
+                          padding: const EdgeInsets.all(40),
+                          primary: Colors.blue, // <-- Button color
+                          onPrimary: Colors.black, // <-- Splash color
+                        ),
+                      )
+                    ],
+                  )
+                ],
+              )
             ),
+            Container(
+              padding: const EdgeInsets.only(bottom: 20),
+              child: footer,
+            )
           ],
         ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
+      )
     );
   }
+
+
 }
