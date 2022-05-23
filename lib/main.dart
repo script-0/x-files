@@ -40,19 +40,9 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
 
   bool _sharingStarted = false;
-  String _accessLink = "http.//192.168.8.100:4000";
-
-  void startSharing(){
-    setState(() {
-      _sharingStarted = true;
-    });
-  }
-
-  void stopSharing(){
-    setState(() {
-      _sharingStarted = false;
-    });
-  }
+  String _accessLink = "";
+  late HttpServer _server;
+  int _port = 4000;
 
   Future<bool> isConnectedToWiFi() async {
     return await WiFiForIoTPlugin.isConnected();
@@ -61,6 +51,54 @@ class _MyHomePageState extends State<MyHomePage> {
   Future<String?> getWiFiIp() async {
     return await WiFiForIoTPlugin.getIP();
   }
+  void startSharing(){
+    isConnectedToWiFi().then((value) => share(value));
+  }
+
+  void share(bool isConnected){
+    if(isConnected){
+      getWiFiIp().then((ipAddress) => startServer(ipAddress!));
+    }else{
+      showDialog<String>(
+        context: context,
+        builder: (BuildContext context) => AlertDialog(
+          title: const Text('X File'),
+          content: const Text('Not connected to any WiFi Access Point.'),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.pop(context, 'OK'),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
+  startServer(String ipAddress) async {
+    HttpServer server = await HttpServer.bind(ipAddress, _port, shared: true);
+    log("Server running on IP : " + server.address.toString() + " On Port : " + server.port.toString());
+
+    setState(() {
+      _sharingStarted = true;
+      _server = server;
+      _accessLink = "http://" + ipAddress + ":" + _port.toString();
+    });
+    await for (var request in server) {
+      request.response
+        ..headers.contentType = ContentType("text", "plain", charset: "utf-8")
+        ..write('Hello, world')
+        ..close();
+    }
+  }
+  void stopSharing(){
+    _server.close().then((value) => setState(() {
+      _sharingStarted = false;
+    })
+    );
+  }
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -93,7 +131,7 @@ class _MyHomePageState extends State<MyHomePage> {
       children: [
         _buildButtonColumn(color, Icons.settings, 'Settings', ()=>{getWiFiIp().then((value) => log("IP : "+ value!))}),
         _buildButtonColumn(color, Icons.star_rate, 'Rate', ()=>{}),
-        _buildButtonColumn(color, Icons.share, 'Share', ()=>{log("Click on Share")}),
+        _buildButtonColumn(color, Icons.share, 'Share', ()=>{}),
       ],
     );
     return Scaffold(
