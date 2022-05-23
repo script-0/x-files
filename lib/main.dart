@@ -2,6 +2,9 @@ import 'dart:developer';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
+import 'dart:io';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:wifi_iot/wifi_iot.dart';
 
 void main() {
   WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
@@ -51,10 +54,24 @@ class _MyHomePageState extends State<MyHomePage> {
     });
   }
 
+  Future<bool> isConnectedToWiFi() async {
+    return await WiFiForIoTPlugin.isConnected();
+  }
+
+  Future<String?> getWiFiIp() async {
+    return await WiFiForIoTPlugin.getIP();
+  }
+
   @override
   Widget build(BuildContext context) {
-    FlutterNativeSplash.remove();
 
+    Future<bool> checkPermission() async {
+      bool storagePermission = await Permission.storage.request().isGranted;
+      bool locationPermission = await Permission.location.request().isGranted;
+      return storagePermission && locationPermission;
+    }
+
+    checkPermission().then((value) => FlutterNativeSplash.remove());
 
     Column _buildButtonColumn(Color color, IconData icon, String tooltip,  VoidCallback? action) {
       return Column(
@@ -74,8 +91,8 @@ class _MyHomePageState extends State<MyHomePage> {
     Widget footer = Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
-        _buildButtonColumn(color, Icons.settings, 'Settings', ()=>{log("Click on Settings")}),
-        _buildButtonColumn(color, Icons.star_rate, 'Rate', ()=>{log("Click on Rate")}),
+        _buildButtonColumn(color, Icons.settings, 'Settings', ()=>{getWiFiIp().then((value) => log("IP : "+ value!))}),
+        _buildButtonColumn(color, Icons.star_rate, 'Rate', ()=>{}),
         _buildButtonColumn(color, Icons.share, 'Share', ()=>{log("Click on Share")}),
       ],
     );
