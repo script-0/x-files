@@ -1,6 +1,7 @@
 import 'dart:developer';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'dart:io';
 import 'package:permission_handler/permission_handler.dart';
@@ -84,7 +85,19 @@ class _MyHomePageState extends State<MyHomePage> {
       _server = server;
       _accessLink = "http://" + ipAddress + ":" + _port.toString();
     });
-    await for (var request in server) {
+    await for (final request in server) {
+      List<String> requestPathParts = request.requestedUri.toString().split("/");
+
+      // If we are requesting favicon.ico
+      if(requestPathParts.length== 4 && requestPathParts.last=="favicon.ico"){
+        final favicon = await rootBundle.load('assets/favicon.ico');
+        request.response
+            ..headers.contentType = ContentType('image', 'x-icon', charset: 'utf-8')
+            ..add(favicon.buffer.asUint8List())
+            ..close();
+        continue;
+      }
+
       request.response
         ..headers.contentType = ContentType("text", "plain", charset: "utf-8")
         ..write('Hello, world')
@@ -97,8 +110,6 @@ class _MyHomePageState extends State<MyHomePage> {
     })
     );
   }
-
-
 
   @override
   Widget build(BuildContext context) {
@@ -141,7 +152,7 @@ class _MyHomePageState extends State<MyHomePage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             Container(
-              padding : const EdgeInsets.only(top: 60),
+              padding : const EdgeInsets.only(top: 40),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 mainAxisAlignment: MainAxisAlignment.center,
