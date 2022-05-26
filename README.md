@@ -1,4 +1,4 @@
-# x_files
+# X files
 Let's Master Flutter :blush: :boom:
 
 Share, read, update, delete files in your phone over WiFi.
@@ -8,7 +8,7 @@ Share, read, update, delete files in your phone over WiFi.
 
 ## Screens
 <p>
-    <img src="docs/imgs/spashscreen.png " width="300"/>
-    <img src="docs/imgs/screen1.png " width="300" />
-    <img src="docs/imgs/screen2.png " width="300" />
+    <img src="docs/imgs/spashscreen.png " width="250"/>
+    <img src="docs/imgs/screen1.png " width="250" />
+    <img src="docs/imgs/screen2.png " width="250" />
 </p>
