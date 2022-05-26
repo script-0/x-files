@@ -1,11 +1,15 @@
+import 'dart:convert';
 import 'dart:developer';
 
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'dart:io';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:wifi_iot/wifi_iot.dart';
+import 'utils.dart';
+import 'package:storage_details/storage_details.dart';
 
 void main() {
   WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
@@ -40,10 +44,14 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
 
+  final DeviceInfoPlugin _deviceInfoPlugin = DeviceInfoPlugin();
+  late Map<String, dynamic> _deviceInfo;
+  List<Storage> _storages = [];
+
   bool _sharingStarted = false;
   String _accessLink = "";
   late HttpServer _server;
-  int _port = 4000;
+  final int _port = 4000;
 
   Future<bool> isConnectedToWiFi() async {
     return await WiFiForIoTPlugin.isConnected();
@@ -52,6 +60,7 @@ class _MyHomePageState extends State<MyHomePage> {
   Future<String?> getWiFiIp() async {
     return await WiFiForIoTPlugin.getIP();
   }
+
   void startSharing(){
     isConnectedToWiFi().then((value) => share(value));
   }
@@ -88,7 +97,7 @@ class _MyHomePageState extends State<MyHomePage> {
     await for (final request in server) {
       List<String> requestPathParts = request.requestedUri.toString().split("/");
 
-      // If we are requesting favicon.ico
+      // If we are requesting /favicon.ico
       if(requestPathParts.length== 4 && requestPathParts.last=="favicon.ico"){
         final favicon = await rootBundle.load('assets/favicon.ico');
         request.response
@@ -98,12 +107,60 @@ class _MyHomePageState extends State<MyHomePage> {
         continue;
       }
 
+      // If we are requesting /info
+      if(requestPathParts.length== 4 && requestPathParts.last=="info"){
+        request.response
+          ..headers.contentType = ContentType('application', 'json', charset: 'utf-8')
+          ..write(
+            jsonEncode({
+              'lang' : Platform.localeName,
+              'brand' : _deviceInfo["brand"],
+              'isPhysicalDevice' : _deviceInfo["isPhysicalDevice"],
+              'model' : _deviceInfo["model"],
+              'sdk' : _deviceInfo["version.sdkInt"],
+              "os" : Platform.operatingSystem,
+              "internalStorage" : {
+                "root" : _storages.isEmpty ? "" : _storages[0].path,
+                "space" : {
+                  "free" :  _storages.isEmpty ? "" : _storages[0].free,
+                  "total" :  _storages.isEmpty ? "" : _storages[0].total
+                }
+              },
+              "sdCard" : {
+                "root" : _storages.length > 1 ? _storages[1].path : "",
+                "space" : {
+                  "freed" : _storages.length > 1 ? _storages[1].free : "",
+                  "total" :_storages.length > 1 ? _storages[1].total : ""
+                }
+              }
+            })
+          )
+          ..close();
+        continue;
+      }
+
+      // If we are requesting /internal
+      if(requestPathParts.length== 4 && requestPathParts.last=="internal"){
+        Directory rootFolder = Directory(_storages[0].path);
+
+        request.response
+          ..headers.contentType = ContentType('application', 'json', charset: 'utf-8')
+          ..write(
+              jsonEncode({
+                "files" : ( await rootFolder.list().toList() ).map((e) => e.path.toString()).toList()
+              })
+          )
+          ..close();
+        continue;
+      }
+
       request.response
         ..headers.contentType = ContentType("text", "plain", charset: "utf-8")
         ..write('Hello, world')
         ..close();
     }
   }
+
   void stopSharing(){
     _server.close().then((value) => setState(() {
       _sharingStarted = false;
@@ -111,16 +168,24 @@ class _MyHomePageState extends State<MyHomePage> {
     );
   }
 
+  void initInfoAndRemoveSplashScreen(){
+    // Load Device information
+    readDeviceBuildData(_deviceInfoPlugin).then((value) => _deviceInfo=value);
+
+    // Load Storage Info
+    StorageDetails.getspace.then((value) => _storages=value).catchError(
+      (err) {
+        log('Error: $err'); // Prints 401.
+      }, test: (error) {
+        return error is int && error >= 400;
+      });
+
+    FlutterNativeSplash.remove();
+  }
+
   @override
   Widget build(BuildContext context) {
-
-    Future<bool> checkPermission() async {
-      bool storagePermission = await Permission.storage.request().isGranted;
-      bool locationPermission = await Permission.location.request().isGranted;
-      return storagePermission && locationPermission;
-    }
-
-    checkPermission().then((value) => FlutterNativeSplash.remove());
+    Color color = const Color.fromRGBO(255, 255, 255, 1);
 
     Column _buildButtonColumn(Color color, IconData icon, String tooltip,  VoidCallback? action) {
       return Column(
@@ -135,8 +200,6 @@ class _MyHomePageState extends State<MyHomePage> {
         ],
       );
     }
-    Color color = const Color.fromRGBO(255, 255, 255, 1);
-
     Widget footer = Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
@@ -145,6 +208,14 @@ class _MyHomePageState extends State<MyHomePage> {
         _buildButtonColumn(color, Icons.share, 'Share', ()=>{}),
       ],
     );
+
+    Future<bool> checkPermission() async {
+      bool storagePermission = await Permission.storage.request().isGranted;
+      bool locationPermission = await Permission.location.request().isGranted;
+      return storagePermission && locationPermission;
+    }
+    checkPermission().then((value) => initInfoAndRemoveSplashScreen());
+
     return Scaffold(
       backgroundColor: Colors.blue,
       body: Center(
