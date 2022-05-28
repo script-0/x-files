@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:developer';
 
 import 'package:device_info_plus/device_info_plus.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
@@ -94,121 +95,9 @@ class _MyHomePageState extends State<MyHomePage> {
       _accessLink = "http://" + ipAddress + ":" + _port.toString();
     });
     await for (final request in server) {
-      List<String> requestPathParts = request.requestedUri.toString().split("/");
-
-      // If we are requesting /favicon.ico
-      if(requestPathParts.length== 4 && requestPathParts.last=="favicon.ico"){
-        final favicon = await rootBundle.load('assets/favicon.ico');
-        request.response
-            ..headers.contentType = ContentType('image', 'x-icon', charset: 'utf-8')
-            ..add(favicon.buffer.asUint8List())
-            ..close();
-        continue;
-      }
-
-      // If we are requesting /info
-      if(requestPathParts.length== 4 && requestPathParts.last=="info"){
-        request.response
-          ..headers.contentType = ContentType('application', 'json', charset: 'utf-8')
-          ..write(
-            jsonEncode({
-              'lang' : Platform.localeName,
-              'brand' : _deviceInfo["brand"],
-              'isPhysicalDevice' : _deviceInfo["isPhysicalDevice"],
-              'model' : _deviceInfo["model"],
-              'sdk' : _deviceInfo["version.sdkInt"],
-              "os" : Platform.operatingSystem,
-              "internalStorage" : {
-                "root" : _storages.isEmpty ? "" : _storages[0].path,
-                "space" : {
-                  "free" :  _storages.isEmpty ? "" : _storages[0].free,
-                  "total" :  _storages.isEmpty ? "" : _storages[0].total
-                }
-              },
-              "sdCard" : {
-                "root" : _storages.length > 1 ? _storages[1].path : "",
-                "space" : {
-                  "freed" : _storages.length > 1 ? _storages[1].free : "",
-                  "total" :_storages.length > 1 ? _storages[1].total : ""
-                }
-              }
-            })
-          )
-          ..close();
-        continue;
-      }
-
-      // If we are requesting /internal
-      if(requestPathParts.length== 4 && requestPathParts.last=="internal"){
-        await _listDir(request, _storages[0].path);
-        continue;
-      }
-
-      // If we are requesting a file /get?f=<file_path> or a dir list /get?d=<dir_path>
-      if(requestPathParts.length > 4 ){
-        List<String> requestParams = requestPathParts[3].split("?");
-        if(requestParams.length > 1 && requestParams[0]=="get"){
-          final requestedFilePath = request.requestedUri.queryParameters['f'] ?? '';
-
-          //requesting a file /get?f=<file_path>
-          if(requestedFilePath != '') {
-            log("requestedFilePath : " + requestedFilePath);
-            bool isDir = await FileSystemEntity.type(requestedFilePath) == FileSystemEntityType.directory;
-            if (isDir) {
-              request.response
-                ..headers.contentType = ContentType(
-                    'application', 'json', charset: 'utf-8')
-                ..write(
-                    jsonEncode({
-                      "error": "It's a Directory"
-                    })
-                )
-                ..close();
-            } else {
-              File file = File(requestedFilePath);
-              int size = await file.length();
-              await _pipeFile(
-                request,
-                file,
-                size,
-                requestedFilePath
-                    .split(Platform.pathSeparator)
-                    .last,
-              );
-            }
-            continue;
-          }
-          else{
-            final requestedDirPath = request.requestedUri.queryParameters['d'] ?? '';
-
-            //requesting a dir list /get?d=<dir_path>
-            if(requestedDirPath != ''){
-              Directory folder = Directory(requestedDirPath);
-              bool isDir =  folder.existsSync();
-              if(isDir){
-                _listDir(request, requestedDirPath);
-              }else{
-                request.response
-                  ..headers.contentType = ContentType(
-                      'application', 'json', charset: 'utf-8')
-                  ..write(
-                      jsonEncode({
-                        "error": "It's a File or doesn't exists."
-                      })
-                  )
-                  ..close();
-              }
-              continue;
-            }
-          }
-        }
-      }
-
-      request.response
-        ..headers.contentType = ContentType("text", "plain", charset: "utf-8")
-        ..write('Hello, world')
-        ..close();
+      _processRequest(request);
     }
+
   }
 
   void stopSharing(){
@@ -268,6 +157,120 @@ class _MyHomePageState extends State<MyHomePage> {
             "files" : ( await folder.list().toList() ).map((e) => e.path.toString()).toList()
           })
       )
+      ..close();
+  }
+
+  Future<void> _processRequest(HttpRequest request) async{
+    List<String> requestPathParts = request.requestedUri.toString().split("/");
+
+    // If we are requesting /favicon.ico
+    if(requestPathParts.length== 4 && requestPathParts.last=="favicon.ico"){
+      final favicon = await rootBundle.load('assets/favicon.ico');
+      request.response
+        ..headers.contentType = ContentType('image', 'x-icon', charset: 'utf-8')
+        ..add(favicon.buffer.asUint8List())
+        ..close();
+      return;
+    }
+
+    // If we are requesting /info
+    if(requestPathParts.length== 4 && requestPathParts.last=="info"){
+      request.response
+        ..headers.contentType = ContentType('application', 'json', charset: 'utf-8')
+        ..write(
+            jsonEncode({
+              'lang' : Platform.localeName,
+              'brand' : _deviceInfo["brand"],
+              'isPhysicalDevice' : _deviceInfo["isPhysicalDevice"],
+              'model' : _deviceInfo["model"],
+              'sdk' : _deviceInfo["version.sdkInt"],
+              "os" : Platform.operatingSystem,
+              "internalStorage" : {
+                "root" : _storages.isEmpty ? "" : _storages[0].path,
+                "space" : {
+                  "free" :  _storages.isEmpty ? "" : _storages[0].free,
+                  "total" :  _storages.isEmpty ? "" : _storages[0].total
+                }
+              },
+              "sdCard" : {
+                "root" : _storages.length > 1 ? _storages[1].path : "",
+                "space" : {
+                  "freed" : _storages.length > 1 ? _storages[1].free : "",
+                  "total" :_storages.length > 1 ? _storages[1].total : ""
+                }
+              }
+            })
+        )
+        ..close();
+      return;
+    }
+
+    // If we are requesting /internal
+    if(requestPathParts.length== 4 && requestPathParts.last=="internal"){
+      await _listDir(request, _storages[0].path);
+      return;
+    }
+
+    // If we are requesting a file /get?f=<file_path> or a dir list /get?d=<dir_path>
+    if(requestPathParts.length > 4 ){
+      List<String> requestParams = requestPathParts[3].split("?");
+      if(requestParams.length > 1 && requestParams[0]=="get"){
+        final requestedFilePath = request.requestedUri.queryParameters['f'] ?? '';
+
+        //requesting a file /get?f=<file_path>
+        if(requestedFilePath != '') {
+          bool isDir = await FileSystemEntity.type(requestedFilePath) == FileSystemEntityType.directory;
+          if (isDir) {
+              request.response
+                ..headers.contentType = ContentType(
+                    'application', 'json', charset: 'utf-8')
+                ..write(
+                    jsonEncode({
+                      "error": "It's a Directory"
+                    })
+                )
+                ..close();
+            } else {
+              File file = File(requestedFilePath);
+              int size = await file.length();
+              await _pipeFile(
+                  request,
+                  file,
+                  size,
+                  requestedFilePath
+                      .split(Platform.pathSeparator)
+                  .last,
+              );
+          }
+          return;
+        }else{
+          //requesting a dir list /get?d=<dir_path>
+          final requestedDirPath = request.requestedUri.queryParameters['d'] ?? '';
+          if(requestedDirPath != ''){
+              Directory folder = Directory(requestedDirPath);
+              bool isDir =  folder.existsSync();
+              if(isDir){
+                _listDir(request, requestedDirPath);
+              }else{
+                request.response
+                  ..headers.contentType = ContentType(
+                  'application', 'json', charset: 'utf-8')
+                  ..write(
+                    jsonEncode({
+                      "error": "It's a File or doesn't exists."
+                    })
+                  )
+                  ..close();
+              }
+              return;
+          }
+        }
+      }
+    }
+
+    request.response
+      ..headers.contentType = ContentType("text", "plain", charset: "utf-8")
+      ..write('Hello, world')
       ..close();
   }
 
