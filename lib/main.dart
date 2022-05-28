@@ -140,49 +140,67 @@ class _MyHomePageState extends State<MyHomePage> {
 
       // If we are requesting /internal
       if(requestPathParts.length== 4 && requestPathParts.last=="internal"){
-        Directory rootFolder = Directory(_storages[0].path);
-
-        request.response
-          ..headers.contentType = ContentType('application', 'json', charset: 'utf-8')
-          ..write(
-              jsonEncode({
-                "files" : ( await rootFolder.list().toList() ).map((e) => e.path.toString()).toList()
-              })
-          )
-          ..close();
+        await _listDir(request, _storages[0].path);
         continue;
       }
 
-      // If we are requesting a file /f?q=<file_path>
+      // If we are requesting a file /get?f=<file_path> or a dir list /get?d=<dir_path>
       if(requestPathParts.length > 4 ){
         List<String> requestParams = requestPathParts[3].split("?");
-        if(requestParams.length > 1 && requestParams[0]=="f"){
+        if(requestParams.length > 1 && requestParams[0]=="get"){
           final requestedFilePath = request.requestedUri.queryParameters['f'] ?? '';
-          log("requestedFilePath : " + requestedFilePath);
-          bool isDir = false;
-          isDir = await FileSystemEntity.type(requestedFilePath)  == FileSystemEntityType.directory;
-          if(isDir){
-            request.response
-              ..headers.contentType = ContentType('application', 'json', charset: 'utf-8')
-              ..write(
-                  jsonEncode({
-                    "error" : "It's a Directory"
-                  })
-              )
-              ..close();
-            continue;
-          }else{
-            File file = File(requestedFilePath);
-            int size = await file.length();
-            await _pipeFile(
-              request,
-              file,
-              size,
-              requestedFilePath.split(Platform.pathSeparator).last,
-            );
+
+          //requesting a file /get?f=<file_path>
+          if(requestedFilePath != '') {
+            log("requestedFilePath : " + requestedFilePath);
+            bool isDir = await FileSystemEntity.type(requestedFilePath) == FileSystemEntityType.directory;
+            if (isDir) {
+              request.response
+                ..headers.contentType = ContentType(
+                    'application', 'json', charset: 'utf-8')
+                ..write(
+                    jsonEncode({
+                      "error": "It's a Directory"
+                    })
+                )
+                ..close();
+            } else {
+              File file = File(requestedFilePath);
+              int size = await file.length();
+              await _pipeFile(
+                request,
+                file,
+                size,
+                requestedFilePath
+                    .split(Platform.pathSeparator)
+                    .last,
+              );
+            }
             continue;
           }
+          else{
+            final requestedDirPath = request.requestedUri.queryParameters['d'] ?? '';
 
+            //requesting a dir list /get?d=<dir_path>
+            if(requestedDirPath != ''){
+              Directory folder = Directory(requestedDirPath);
+              bool isDir =  folder.existsSync();
+              if(isDir){
+                _listDir(request, requestedDirPath);
+              }else{
+                request.response
+                  ..headers.contentType = ContentType(
+                      'application', 'json', charset: 'utf-8')
+                  ..write(
+                      jsonEncode({
+                        "error": "It's a File or doesn't exists."
+                      })
+                  )
+                  ..close();
+              }
+              continue;
+            }
+          }
         }
       }
 
@@ -215,12 +233,7 @@ class _MyHomePageState extends State<MyHomePage> {
     FlutterNativeSplash.remove();
   }
 
-  Future<void> _pipeFile(
-      HttpRequest request,
-      File? file,
-      int? size,
-      String fileName,
-      ) async {
+  Future<void> _pipeFile(HttpRequest request, File? file, int? size, String fileName) async {
     request.response.headers.contentType =
         ContentType('application', 'octet-stream', charset: 'utf-8');
 
@@ -244,6 +257,18 @@ class _MyHomePageState extends State<MyHomePage> {
     await file!.openRead().pipe(request.response).catchError((e) {}).then((a) {
       request.response.close();
     });
+  }
+
+  Future<void> _listDir( HttpRequest request, String dirPath) async{
+    Directory folder = Directory(dirPath);
+    request.response
+      ..headers.contentType = ContentType('application', 'json', charset: 'utf-8')
+      ..write(
+          jsonEncode({
+            "files" : ( await folder.list().toList() ).map((e) => e.path.toString()).toList()
+          })
+      )
+      ..close();
   }
 
   @override
