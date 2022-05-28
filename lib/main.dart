@@ -88,7 +88,6 @@ class _MyHomePageState extends State<MyHomePage> {
   startServer(String ipAddress) async {
     HttpServer server = await HttpServer.bind(ipAddress, _port, shared: true);
     log("Server running on IP : " + server.address.toString() + " On Port : " + server.port.toString());
-
     setState(() {
       _sharingStarted = true;
       _server = server;
@@ -154,6 +153,39 @@ class _MyHomePageState extends State<MyHomePage> {
         continue;
       }
 
+      // If we are requesting a file /f?q=<file_path>
+      if(requestPathParts.length > 4 ){
+        List<String> requestParams = requestPathParts[3].split("?");
+        if(requestParams.length > 1 && requestParams[0]=="f"){
+          final requestedFilePath = request.requestedUri.queryParameters['f'] ?? '';
+          log("requestedFilePath : " + requestedFilePath);
+          bool isDir = false;
+          isDir = await FileSystemEntity.type(requestedFilePath)  == FileSystemEntityType.directory;
+          if(isDir){
+            request.response
+              ..headers.contentType = ContentType('application', 'json', charset: 'utf-8')
+              ..write(
+                  jsonEncode({
+                    "error" : "It's a Directory"
+                  })
+              )
+              ..close();
+            continue;
+          }else{
+            File file = File(requestedFilePath);
+            int size = await file.length();
+            await _pipeFile(
+              request,
+              file,
+              size,
+              requestedFilePath.split(Platform.pathSeparator).last,
+            );
+            continue;
+          }
+
+        }
+      }
+
       request.response
         ..headers.contentType = ContentType("text", "plain", charset: "utf-8")
         ..write('Hello, world')
@@ -181,6 +213,37 @@ class _MyHomePageState extends State<MyHomePage> {
       });
 
     FlutterNativeSplash.remove();
+  }
+
+  Future<void> _pipeFile(
+      HttpRequest request,
+      File? file,
+      int? size,
+      String fileName,
+      ) async {
+    request.response.headers.contentType =
+        ContentType('application', 'octet-stream', charset: 'utf-8');
+
+    request.response.headers.add(
+      'Content-Transfer-Encoding',
+      'Binary',
+    );
+
+    request.response.headers.add(
+      'Content-disposition',
+      'attachment; filename="${Uri.encodeComponent(fileName)}"',
+    );
+
+    if (size != null) {
+      request.response.headers.add(
+        'Content-length',
+        size,
+      );
+    }
+
+    await file!.openRead().pipe(request.response).catchError((e) {}).then((a) {
+      request.response.close();
+    });
   }
 
   @override
