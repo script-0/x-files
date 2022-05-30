@@ -68,6 +68,7 @@ flutter:
       - assets/x_logo_white.png
       - assets/x_logo_blue.png
       - assets/favicon.ico
+      - assets/index.html
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/assets-and-images/#resolution-aware.

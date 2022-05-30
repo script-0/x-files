@@ -170,6 +170,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
     request.response
       ..headers.contentType = ContentType('application', 'json', charset: 'utf-8')
+      ..headers.add("Access-Control-Allow-Origin", "*")
       ..write(
           jsonEncode({
             "content" : result
@@ -181,6 +182,18 @@ class _MyHomePageState extends State<MyHomePage> {
   Future<void> _processRequest(HttpRequest request) async{
     List<String> requestPathParts = request.requestedUri.toString().split("/");
 
+    // If we are requesting /
+    if(requestPathParts.length== 4 && requestPathParts.last==""){
+      var html = (await rootBundle.loadString('assets/index.html'));
+      html = html.replaceAll("<IP>", _accessLink);
+      
+      request.response
+        ..headers.contentType = ContentType('text', 'html', charset: 'utf-8')
+        ..write(html)
+        ..close();
+      return;
+    }
+    
     // If we are requesting /favicon.ico
     if(requestPathParts.length== 4 && requestPathParts.last=="favicon.ico"){
       final favicon = await rootBundle.load('assets/favicon.ico');

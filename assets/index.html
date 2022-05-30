@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <title>Files</title>
+        <link rel="icon" type="image/x-icon" href="<IP>/favicon.ico">
+        <style>
+            .app-bar{
+                margin: 0;
+                padding: 10px;
+                background-color: white;
+                box-shadow: rgba(17, 17, 26, 0.1) 0px 1px 0px;
+                display: flex;
+                align-items: center;
+            }
+            .app-bar-title{
+                margin-left: 5px;
+                font-size: 20px;
+                font-weight: bold;
+                color: #2795ef;
+
+            }
+            .container{
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                width: 100%;
+                height: 100%;
+                margin-top: 10px;
+                font-family: 'Roboto', 'Noto', sans-serif;
+            }
+            .content, .breadcrumb{
+                box-shadow: rgba(0, 0, 0, 0.1) 0px 0px 5px 0px, rgba(0, 0, 0, 0.1) 0px 0px 1px 0px;
+            }
+
+            .content{
+                width: 800px;
+                max-width: 800px;
+            }
+            .breadcrumb{
+                padding: 15px;
+                margin: 0;
+                background-color: #2795ef;
+                color: white;
+            }
+            .files-list{
+                list-style: none;
+                width: 100%;
+                display: flex;
+                flex-direction: column;
+                padding: 0;
+                margin-top: 10px;
+                max-height: 800px;
+                overflow: scroll;
+            }
+            .file{
+                padding: 10px  20px;
+                display: flex;
+            }
+            .file:hover{
+                cursor: pointer;
+                background-color: #2795ef33;
+            }
+            .file-name{
+                margin-left: 10px;
+                flex-grow: 1;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+                color: #212121;
+                font-size: 16px;
+                font-weight: 400;
+                line-height: 24px;
+            }
+            .file-details{
+                color: #737373;
+                -webkit-font-smoothing: antialiased;
+                font-size: 14px;
+                font-weight: 400;
+                line-height: 20px;
+            }
+            .file-icon{
+                color: #737373 !important;
+                line-height: 1;
+                width: 20px;
+                height: 20px;
+            }
+            .file-icon svg{
+                fill: #737373 !important;
+            }
+        </style>
+    </head>
+
+    <body>
+        <div class="app-bar">
+            <img src="<IP>/logo" alt="Logo" width="30px" wsrcset="">
+            <div class="app-bar-title">Files</div>
+        </div>
+        <div class="container">
+            <div class="content">
+                <div class="breadcrumb">
+                    > Internal Storage
+                </div>
+                <ul class="files-list" id="files-list">
+                </ul>
+            </div>
+        </div>
+
+        <script>
+
+            const convertBytesToHumanReadableNotation = (bytes, decimals = 2)=>{
+                if (bytes === 0) return '0 bytes';
+                const k = 1024;
+                const dm = decimals < 0 ? 0 : decimals;
+                const sizes = ['bytes', 'Kb', 'Mb', 'Gb', 'Tb', 'Pb', 'Eb', 'Zb', 'Yb'];
+
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+
+                return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+            }
+
+            const getNameFromPath = (path) =>{
+                const tmp = path.split("/")
+                return tmp[tmp.length - 1]
+            }
+
+            let requestHandler = new XMLHttpRequest();
+            requestHandler.open("GET", "<IP>/internal");
+            requestHandler.onload = ()=>{
+
+                let listNode = document.getElementById("files-list")
+                
+                if(requestHandler.status !== 200){
+
+                    listNode.innerHTML=`
+                        <li class="file">
+                            Failed to fetch directory data.
+                        </li>
+                    `
+
+                    console.log(" Failed to fetch directory data.")
+                    return
+                }
+
+                let contentApi = JSON.parse(requestHandler.response);
+
+                let parseContent = contentApi["content"].map(elt => {
+                    return `
+                        <li class="file">
+                            <span class="file-icon">${elt["isDir"]? folderIcon : fileIcon}</span> 
+                            <span class="file-name">${getNameFromPath(elt["path"])}</span>
+                            <span class="file-details">  ${elt["isDir"]? elt["size"] + " element" + (elt["size"] > 1 ?"s":"") : convertBytesToHumanReadableNotation(elt["size"])} 
+                            </span>
+                        </li>
+                    `
+                });
+
+                listNode.innerHTML = parseContent.join("\n");
+            }
+
+            requestHandler.send("")
+
+            const musicIcon = '<svg viewBox="0 0 24 24" preserveAspectRatio="xMidYMid meet" focusable="false" style="pointer-events: none; display: block; width: 100%; height: 100%;"><g><path d="M13,9H18.5L13,3.5V9M6,2H14L20,8V20A2,2 0 0,1 18,22H6C4.89,22 4,21.1 4,20V4C4,2.89 4.89,2 6,2M9,16A2,2 0 0,0 7,18A2,2 0 0,0 9,20A2,2 0 0,0 11,18V13H14V11H10V16.27C9.71,16.1 9.36,16 9,16Z"></path></g></svg>';
+            const fileIcon = '<svg viewBox="0 0 24 24" preserveAspectRatio="xMidYMid meet" focusable="false" style="pointer-events: none; display: block; width: 100%; height: 100%;"><g><path d="M13,9V3.5L18.5,9M6,2C4.89,2 4,2.89 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2H6Z"></path></g></svg>'
+            const folderIcon = '<svg viewBox="0 0 24 24" preserveAspectRatio="xMidYMid meet" focusable="false" style="pointer-events: none; display: block; width: 100%; height: 100%;"><g><path d="M10,4H4C2.89,4 2,4.89 2,6V18A2,2 0 0,0 4,20H20A2,2 0 0,0 22,18V8C22,6.89 21.1,6 20,6H12L10,4Z"></path></g></svg>'
+        </script>
+    </body>
+</html>
