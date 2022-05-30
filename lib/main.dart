@@ -157,12 +157,14 @@ class _MyHomePageState extends State<MyHomePage> {
     Directory folder = Directory(dirPath);
     List<String> content = ( await folder.list().toList() ).map((e) => e.path.toString()).toList();
     List<Map<String, dynamic>> result = [];
-
+    bool isDir;
     for (var element in content) {
       folder = Directory(element);
+      isDir = folder.existsSync();
       result.add({
         "path" : element,
-        "isDir" : folder.existsSync()
+        "isDir" : isDir,
+        "size" : isDir ? folder.listSync().length: File(element).lengthSync()
       });
     }
 
@@ -184,6 +186,16 @@ class _MyHomePageState extends State<MyHomePage> {
       final favicon = await rootBundle.load('assets/favicon.ico');
       request.response
         ..headers.contentType = ContentType('image', 'x-icon', charset: 'utf-8')
+        ..add(favicon.buffer.asUint8List())
+        ..close();
+      return;
+    }
+
+    // If we are requesting /logo
+    if(requestPathParts.length== 4 && requestPathParts.last=="logo"){
+      final favicon = await rootBundle.load('assets/x_logo_blue.png');
+      request.response
+        ..headers.contentType = ContentType('image', 'x-png', charset: 'utf-8')
         ..add(favicon.buffer.asUint8List())
         ..close();
       return;
