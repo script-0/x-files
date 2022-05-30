@@ -67,22 +67,28 @@ class _MyHomePageState extends State<MyHomePage> {
 
   void share(bool isConnected){
     if(isConnected){
-      getWiFiIp().then((ipAddress) => startServer(ipAddress!));
+      checkPermission().then((permissionsAllowed) =>
+            permissionsAllowed ? getWiFiIp().then((ipAddress) => startServer(ipAddress!))
+          : notifyUser("Sorry, we can't go forward. Required Permissions not allowed."));
     }else{
-      showDialog<String>(
-        context: context,
-        builder: (BuildContext context) => AlertDialog(
-          title: const Text('X File'),
-          content: const Text('Not connected to any WiFi Access Point.'),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.pop(context, 'OK'),
-              child: const Text('OK'),
-            ),
-          ],
-        ),
-      );
+      notifyUser('Not connected to any WiFi Access Point.');
     }
+  }
+
+  void notifyUser(String msg){
+    showDialog<String>(
+      context: context,
+      builder: (BuildContext context) => AlertDialog(
+        title: const Text('X File'),
+        content: Text(msg),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.pop(context, 'OK'),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
   }
 
   startServer(String ipAddress) async {
@@ -285,9 +291,13 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   Future<bool> checkPermission() async {
-    bool storagePermission = await Permission.storage.request().isGranted;
-    bool locationPermission = await Permission.location.request().isGranted;
-    return storagePermission && locationPermission;
+    Map<Permission, PermissionStatus> permissionStatuses = await [
+      Permission.storage,
+      Permission.location
+    ].request();
+
+    return permissionStatuses[Permission.storage]!=null &&  permissionStatuses[Permission.storage]!.isGranted &&
+        permissionStatuses[Permission.location]!=null && permissionStatuses[Permission.location]!.isGranted;
   }
 
   @override
