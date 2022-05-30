@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:developer';
 
 import 'package:device_info_plus/device_info_plus.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
@@ -150,11 +149,22 @@ class _MyHomePageState extends State<MyHomePage> {
 
   Future<void> _listDir( HttpRequest request, String dirPath) async{
     Directory folder = Directory(dirPath);
+    List<String> content = ( await folder.list().toList() ).map((e) => e.path.toString()).toList();
+    List<Map<String, dynamic>> result = [];
+
+    for (var element in content) {
+      folder = Directory(element);
+      result.add({
+        "path" : element,
+        "isDir" : folder.existsSync()
+      });
+    }
+
     request.response
       ..headers.contentType = ContentType('application', 'json', charset: 'utf-8')
       ..write(
           jsonEncode({
-            "files" : ( await folder.list().toList() ).map((e) => e.path.toString()).toList()
+            "content" : result
           })
       )
       ..close();
@@ -274,6 +284,12 @@ class _MyHomePageState extends State<MyHomePage> {
       ..close();
   }
 
+  Future<bool> checkPermission() async {
+    bool storagePermission = await Permission.storage.request().isGranted;
+    bool locationPermission = await Permission.location.request().isGranted;
+    return storagePermission && locationPermission;
+  }
+
   @override
   Widget build(BuildContext context) {
     Color color = const Color.fromRGBO(255, 255, 255, 1);
@@ -300,11 +316,6 @@ class _MyHomePageState extends State<MyHomePage> {
       ],
     );
 
-    Future<bool> checkPermission() async {
-      bool storagePermission = await Permission.storage.request().isGranted;
-      bool locationPermission = await Permission.location.request().isGranted;
-      return storagePermission && locationPermission;
-    }
     checkPermission().then((value) => initInfoAndRemoveSplashScreen());
 
     return Scaffold(
